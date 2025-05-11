@@ -1,0 +1,259 @@
+﻿<Window x:Class="DSASignatureApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="DSA Цифровая Подпись" Height="788" Width="1100"
+        MinHeight="700" MinWidth="900"
+        FontFamily="Global User Interface" FontSize="14">
+
+    <Window.Resources>
+        <!-- Общие стили -->
+        <Style x:Key="SectionLabel" TargetType="Label">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="0,5,0,5" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+        <Style x:Key="ParameterLabel" TargetType="Label">
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,5,10,5" />
+        </Style>
+        <Style x:Key="ParameterTextBox" TargetType="TextBox">
+            <Setter Property="Height" Value="25" />
+            <Setter Property="Margin" Value="0,5,0,5" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="ValidationLabel" TargetType="Label">
+            <Setter Property="Margin" Value="0,2,0,2" />
+            <Setter Property="Foreground" Value="Gray" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style x:Key="ActionButton" TargetType="Button">
+            <Setter Property="Width" Value="150" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Margin" Value="10,5" />
+        </Style>
+        <Style x:Key="FileButton" TargetType="Button">
+            <Setter Property="Width" Value="120" />
+            <Setter Property="Height" Value="25" />
+            <Setter Property="Margin" Value="0,5" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="2*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Главное меню -->
+        <Menu Grid.Row="0" Grid.ColumnSpan="2" FontFamily="Global User Interface" FontSize="14">
+            <MenuItem Header="Файл">
+                <MenuItem Header="Открыть" x:Name="OpenMenuItem" InputGestureText="Ctrl+O" Click="OpenMenuItem_Click"/>
+                <MenuItem Header="Сохранить подписанный файл" x:Name="SaveMenuItem" InputGestureText="Ctrl+S" Click="SaveMenuItem_Click"/>
+                <Separator/>
+                <MenuItem Header="Выход" Click="ExitMenuItem_Click"/>
+            </MenuItem>
+            <MenuItem Header="Помощь">
+                <MenuItem Header="О программе" Click="AboutMenuItem_Click"/>
+                <MenuItem Header="Документация" Click="DocumentationMenuItem_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <TabControl Grid.Row="1" Grid.ColumnSpan="2">
+            <!-- Вкладка алгоритм DSA -->
+            <TabItem Header="Алгоритм DSA" x:Name="TabDSASignature">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="3*"/>
+                        <ColumnDefinition Width="2*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Секция ввода параметров -->
+                    <GroupBox Grid.Row="0" Grid.Column="0" Header="Параметры DSA" Margin="10">
+                        <Grid Margin="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Ввод q -->
+                            <Label Grid.Row="0" Grid.Column="0" Content="q:" Style="{StaticResource ParameterLabel}"/>
+                            <Label Grid.Row="0" Grid.Column="1" x:Name="QValidationLabel" 
+                                   Content="Введите простое число q" 
+                                   Style="{StaticResource ValidationLabel}"/>
+                            <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" x:Name="QTextBox" 
+                                     Style="{StaticResource ParameterTextBox}"
+                                     TextChanged="QTextBox_TextChanged"/>
+
+                            <!-- Ввод p -->
+                            <Label Grid.Row="0" Grid.Column="2" Content="p:" Style="{StaticResource ParameterLabel}"/>
+                            <Label Grid.Row="0" Grid.Column="3" x:Name="PValidationLabel" 
+                                   Content="Введите простое число p, (p-1) делится на q" 
+                                   Style="{StaticResource ValidationLabel}"/>
+                            <TextBox Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2" x:Name="PTextBox" 
+                                     Style="{StaticResource ParameterTextBox}"
+                                     TextChanged="PTextBox_TextChanged"/>
+
+                            <!-- Ввод h -->
+                            <Label Grid.Row="2" Grid.Column="0" Content="h:" Style="{StaticResource ParameterLabel}"/>
+                            <Label Grid.Row="2" Grid.Column="1" x:Name="HValidationLabel" 
+                                   Content="Введите целое число h из интервала (1, p-1)" 
+                                   Style="{StaticResource ValidationLabel}"/>
+                            <TextBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" x:Name="HTextBox" 
+                                     Style="{StaticResource ParameterTextBox}"
+                                     TextChanged="HTextBox_TextChanged"/>
+
+                            <!-- Ввод x -->
+                            <Label Grid.Row="2" Grid.Column="2" Content="x:" Style="{StaticResource ParameterLabel}"/>
+                            <Label Grid.Row="2" Grid.Column="3" x:Name="XValidationLabel" 
+                                   Content="Введите целое число x из интервала (0, q)" 
+                                   Style="{StaticResource ValidationLabel}"/>
+                            <TextBox Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2" x:Name="XTextBox" 
+                                     Style="{StaticResource ParameterTextBox}"
+                                     TextChanged="XTextBox_TextChanged"/>
+
+                            <!-- Ввод k -->
+                            <Label Grid.Row="4" Grid.Column="0" Content="k:" Style="{StaticResource ParameterLabel}"/>
+                            <Label Grid.Row="4" Grid.Column="1" x:Name="KValidationLabel" 
+                                   Content="Введите целое число k из интервала (0, q)" 
+                                   Style="{StaticResource ValidationLabel}"/>
+                            <TextBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" x:Name="KTextBox" 
+                                     Style="{StaticResource ParameterTextBox}"
+                                     TextChanged="KTextBox_TextChanged"/>
+
+
+                            <!-- Кнопки действий -->
+                            <StackPanel Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="4" 
+                                        Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
+                                <Button Content="Подписать" x:Name="SignButton"
+                                        Style="{StaticResource ActionButton}" 
+                                        Click="SignButton_Click"/>
+                                <Button Content="Проверить" x:Name="VerifyButton"
+                                        Style="{StaticResource ActionButton}" 
+                                        Click="VerifyButton_Click"/>
+                            </StackPanel>
+
+                            <!-- Строка статуса и прогресс-бар -->
+                            <TextBlock Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="4" 
+                                       x:Name="StatusTextBlock" Text="Ожидание ввода параметров" 
+                                       Margin="5" FontSize="12"/>
+                            <Label Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="4" Margin="5" FontSize="12"  x:Name="SelectedFileLabel">Файл не выбран</Label>
+
+                        </Grid>
+                    </GroupBox>
+
+                   
+
+                    <!-- Секция для вывода текстового содержимого файла -->
+                    <GroupBox Grid.Row="2" Grid.Column="0" Header="Содержимое файла" Margin="10,0,10,10">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <TextBox x:Name="FileContentTextBox" 
+                                     TextWrapping="Wrap" 
+                                     IsReadOnly="True"
+                                     Background="#F8F8F8"
+                                     BorderThickness="1"/>
+                        </ScrollViewer>
+                    </GroupBox>
+
+                    <!-- Секция лога и вычислений -->
+                    <GroupBox Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" 
+          Header="Ваши действия:" Margin="10">
+                        <DockPanel>
+                            <!-- Результаты вычислений -->
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="Результаты вычислений:" FontWeight="Bold" Margin="0,0,0,5"/>
+
+                                <!-- Хеш сообщения -->
+                                <Label Grid.Row="1" Grid.Column="0" Content="Хеш сообщения:" Style="{StaticResource ParameterLabel}"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" x:Name="HashValueTextBox" 
+                     Style="{StaticResource ParameterTextBox}" IsReadOnly="True"/>
+
+                                <!-- Значение r -->
+                                <Label Grid.Row="2" Grid.Column="0" Content="Значение r:" Style="{StaticResource ParameterLabel}"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" x:Name="RValueTextBox" 
+                     Style="{StaticResource ParameterTextBox}" IsReadOnly="True"/>
+
+                                <!-- Значение s -->
+                                <Label Grid.Row="3" Grid.Column="0" Content="Значение s:" Style="{StaticResource ParameterLabel}"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" x:Name="SValueTextBox" 
+                     Style="{StaticResource ParameterTextBox}" IsReadOnly="True"/>
+
+                                <!-- Информация о публичном ключе -->
+                                <Label Grid.Row="4" Grid.Column="0" Content="Значение g:" Style="{StaticResource ParameterLabel}"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" x:Name="GValueTextBox" 
+                     Style="{StaticResource ParameterTextBox}" IsReadOnly="True"/>
+
+                                <!-- Значение y -->
+                                <Label Grid.Row="5" Grid.Column="0" Content="Значение y:" Style="{StaticResource ParameterLabel}"/>
+                                <TextBox Grid.Row="5" Grid.Column="1" x:Name="YValueTextBox" 
+                     Style="{StaticResource ParameterTextBox}" IsReadOnly="True"/>
+
+                                <!-- Результат проверки подписи -->
+                                <Label Grid.Row="6" Grid.Column="0" Content="Результат проверки:" Style="{StaticResource ParameterLabel}"/>
+                                <TextBox Grid.Row="6" Grid.Column="1" x:Name="VerificationResultTextBox" 
+                     Style="{StaticResource ParameterTextBox}" IsReadOnly="True"/>
+                            </Grid>
+
+                            <!-- Лог вычислений -->
+                            <TextBlock DockPanel.Dock="Top" Text="Лог вычислений:" FontWeight="Bold" Margin="0,5,0,5"/>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="LogItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" 
+                                   Margin="0,2" 
+                                   TextWrapping="Wrap"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </GroupBox>
+
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
