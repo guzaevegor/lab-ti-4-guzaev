@@ -1,0 +1,10 @@
+-----BEGIN DSA SIGNATURE-----
+r=36
+s=42
+p=643
+q=107
+g=64
+y=181
+-----END DSA SIGNATURE-----
+
+Испуганный ёж

@@ -315,6 +315,8 @@ namespace DSASignatureApp
 
             try
             {
+                string filePath = ""; // Переменная для пути к файлу
+
                 // Проверяем параметры
                 if (!int.TryParse(QTextBox.Text, out int q) || !IsPrime(q))
                     throw new Exception("q должно быть простым числом");
@@ -331,28 +333,24 @@ namespace DSASignatureApp
                 if (!int.TryParse(KTextBox.Text, out int k) || k <= 0 || k >= q)
                     throw new Exception("k должно быть в диапазоне (0, q)");
 
-                // Проверяем, есть ли файл для подписи
-                if (sourceBytes == null || sourceBytes.Length == 0)
+                // Всегда показываем диалог выбора файла
+                OpenFileDialog openFileDialog = new OpenFileDialog
                 {
-                    // Показываем диалог выбора файла
-                    OpenFileDialog openFileDialog = new OpenFileDialog
-                    {
-                        Filter = "Текстовые файлы (*.txt)|*.txt|Все файлы (*.*)|*.*",
-                        Title = "Выберите файл для подписи"
-                    };
+                    Filter = "Текстовые файлы (*.txt)|*.txt|Все файлы (*.*)|*.*",
+                    Title = "Выберите файл для подписи"
+                };
 
-                    if (openFileDialog.ShowDialog() == true)
-                    {
-                        string sourcePath = openFileDialog.FileName;
-                        sourceBytes = File.ReadAllBytes(sourcePath);
-                        FileContentTextBox.Text = Encoding.UTF8.GetString(sourceBytes);
-                        SelectedFileLabel.Content = Path.GetFileName(sourcePath);
-                        AddToLog($"Загружен файл: {sourcePath}");
-                    }
-                    else
-                    {
-                        return; // Пользователь отменил выбор файла
-                    }
+                if (openFileDialog.ShowDialog() == true)
+                {
+                    filePath = openFileDialog.FileName;
+                    sourceBytes = File.ReadAllBytes(filePath);
+                    FileContentTextBox.Text = Encoding.UTF8.GetString(sourceBytes);
+                    SelectedFileLabel.Content = filePath; // Сохраняем полный путь
+                    AddToLog($"Загружен файл: {filePath}");
+                }
+                else
+                {
+                    return; // Пользователь отменил выбор файла
                 }
 
                 // Вычисляем g
@@ -417,23 +415,28 @@ namespace DSASignatureApp
 
                 AddToLog($"Сгенерирована подпись: r = {r}, s = {s}");
 
-                // Сохраняем подпись в отдельный файл .dsa
-                SaveFileDialog saveFileDialog = new SaveFileDialog
-                {
-                    Filter = "Файлы подписи DSA (*.dsa)|*.dsa|Все файлы (*.*)|*.*",
-                    Title = "Сохранить файл подписи",
-                    // Устанавливаем то же имя файла, что и у исходного, но с расширением .dsa
-                    FileName = Path.ChangeExtension(SelectedFileLabel.Content.ToString(), ".dsa")
-                };
+                // Формируем блок подписи
+                string signatureBlock =
+                    "-----BEGIN DSA SIGNATURE-----\n" +
+                    $"r={r}\n" +
+                    $"s={s}\n" +
+                    $"p={p}\n" +
+                    $"q={q}\n" +
+                    $"g={g}\n" +
+                    $"y={y}\n" +
+                    "-----END DSA SIGNATURE-----\n\n";
 
-                if (saveFileDialog.ShowDialog() == true)
-                {
-                    // Создаем содержимое файла подписи - только значения r и s
-                    string signatureContent = $"{r}\n{s}\n{p}\n{q}\n{g}\n{y}";
-                    File.WriteAllText(saveFileDialog.FileName, signatureContent);
-                    AddToLog($"Файл подписи сохранен: {saveFileDialog.FileName}");
-                    StatusTextBlock.Text = "Подпись успешно сгенерирована и сохранена";
-                }
+                // Добавляем подпись в начало исходного файла
+                string originalContent = File.ReadAllText(filePath);
+                string signedContent = signatureBlock + originalContent;
+
+                // Сохраняем подписанный файл
+                File.WriteAllText(filePath, signedContent);
+                AddToLog($"Подпись добавлена в начало исходного файла: {filePath}");
+                StatusTextBlock.Text = "Подпись успешно сгенерирована и добавлена в файл";
+
+                // Обновляем отображаемое содержимое файла
+                FileContentTextBox.Text = signedContent;
             }
             catch (Exception ex)
             {
@@ -444,113 +447,126 @@ namespace DSASignatureApp
         }
 
 
+
         private void VerifyButton_Click(object sender, RoutedEventArgs e)
         {
+            // Очищаем предыдущие результаты проверки
+            VerificationResultTextBox.Text = "";
+
             try
             {
-                // Запрашиваем у пользователя выбор исходного файла для проверки
+                // Показываем диалог выбора файла с подписью
                 OpenFileDialog openFileDialog = new OpenFileDialog
                 {
                     Filter = "Текстовые файлы (*.txt)|*.txt|Все файлы (*.*)|*.*",
-                    Title = "Выберите исходный файл для проверки"
+                    Title = "Выберите подписанный файл для проверки"
                 };
 
-                if (openFileDialog.ShowDialog() == true)
+                if (openFileDialog.ShowDialog() != true)
+                    return; // Пользователь отменил выбор файла
+
+                string filePath = openFileDialog.FileName;
+                string fileContent = File.ReadAllText(filePath);
+                AddToLog($"Загружен файл для проверки: {filePath}");
+
+                // Ищем начало и конец блока подписи (в начале файла)
+                int signatureStart = fileContent.IndexOf("-----BEGIN DSA SIGNATURE-----");
+                int signatureEnd = fileContent.IndexOf("-----END DSA SIGNATURE-----");
+
+                if (signatureStart != 0)
                 {
-                    string sourceFilePath = openFileDialog.FileName;
-                    byte[] fileBytes = File.ReadAllBytes(sourceFilePath);
-                    FileContentTextBox.Text = Encoding.UTF8.GetString(fileBytes);
-                    AddToLog($"Загружен исходный файл для проверки: {sourceFilePath}");
+                    throw new Exception("Файл не содержит блока подписи DSA в начале");
+                }
 
-                    // Теперь запрашиваем файл подписи
-                    OpenFileDialog signatureDialog = new OpenFileDialog
+                if (signatureStart < 0 || signatureEnd < 0 || signatureEnd <= signatureStart)
+                {
+                    throw new Exception("Файл не содержит корректного блока подписи DSA");
+                }
+
+                // Конец блока подписи включает длину маркера окончания
+                int endOfSignatureBlock = signatureEnd + "-----END DSA SIGNATURE-----".Length;
+
+                // Извлекаем оригинальный контент после блока подписи
+                string originalContent = fileContent.Substring(endOfSignatureBlock).TrimStart();
+                byte[] originalBytes = Encoding.UTF8.GetBytes(originalContent);
+
+                // Извлекаем блок подписи
+                string signatureBlock = fileContent.Substring(
+                    signatureStart + "-----BEGIN DSA SIGNATURE-----".Length,
+                    signatureEnd - signatureStart - "-----BEGIN DSA SIGNATURE-----".Length
+                );
+
+                // Парсим параметры подписи
+                Dictionary<string, int> signatureParams = new Dictionary<string, int>();
+                foreach (string line in signatureBlock.Split('\n'))
+                {
+                    string trimmedLine = line.Trim();
+                    if (string.IsNullOrEmpty(trimmedLine)) continue;
+
+                    string[] parts = trimmedLine.Split('=');
+                    if (parts.Length == 2)
                     {
-                        Filter = "Файлы подписи DSA (*.dsa)|*.dsa|Все файлы (*.*)|*.*",
-                        Title = "Выберите файл подписи",
-                        // Предлагаем файл подписи с тем же именем, но другим расширением
-                        FileName = Path.ChangeExtension(sourceFilePath, ".dsa")
-                    };
-
-                    if (signatureDialog.ShowDialog() == true)
-                    {
-                        string signatureFilePath = signatureDialog.FileName;
-
-                        // Читаем значения r, s, p, q, g, y из файла подписи
-                        string[] signatureLines = File.ReadAllLines(signatureFilePath);
-
-                        if (signatureLines.Length >= 6 &&
-                            int.TryParse(signatureLines[0], out int r) &&
-                            int.TryParse(signatureLines[1], out int s) &&
-                            int.TryParse(signatureLines[2], out int p) &&
-                            int.TryParse(signatureLines[3], out int q) &&
-                            int.TryParse(signatureLines[4], out int g) &&
-                            int.TryParse(signatureLines[5], out int y))
-                        {
-                            // Заполняем поля значениями из файла подписи
-                            PTextBox.Text = p.ToString();
-                            QTextBox.Text = q.ToString();
-                            GValueTextBox.Text = g.ToString();
-                            YValueTextBox.Text = y.ToString();
-                            RValueTextBox.Text = r.ToString();
-                            SValueTextBox.Text = s.ToString();
-
-                            // Вычисляем хеш исходного файла
-                            int hash = CalculateHash(fileBytes, q);
-                            HashValueTextBox.Text = hash.ToString();
-                            AddToLog($"Вычислен хеш для проверки: {hash}");
-
-                            // Проверяем подпись
-                            bool isValid = VerifyDSASignature(fileBytes, r, s, p, q, g, y);
-
-                            // Вычисляем значения для проверки
-                            int w = ModPow(s, q - 2, q);
-                            int u1 = (int)(((long)hash * w) % q);
-                            int u2 = (int)(((long)r * w) % q);
-                            BigInteger v1 = BigInteger.ModPow(g, u1, p);
-                            BigInteger v2 = BigInteger.ModPow(y, u2, p);
-                            int v = (int)((v1 * v2) % p % q);
-
-                            // Отображаем результат проверки
-                            string resultMessage = isValid ? "Подпись верна" : "Подпись неверна";
-                            VerificationResultTextBox.Text = resultMessage;
-                            VerificationResultTextBox.Foreground = isValid ? Brushes.Green : Brushes.Red;
-
-                            // Логируем детали проверки
-                            AddToLog($"Проверка w = {w}");
-                            AddToLog($"Проверка u1 = {u1}");
-                            AddToLog($"Проверка u2 = {u2}");
-                            AddToLog($"Проверка v = {v}");
-                            AddToLog($"Ожидаемое r = {r}");
-                            AddToLog($"Результат проверки: {resultMessage}");
-
-                            MessageBox.Show(
-                                $"Результат проверки: {resultMessage}\n\n" +
-                                $"Вычисленные значения:\n" +
-                                $"w = {w}\n" +
-                                $"u1 = {u1}\n" +
-                                $"u2 = {u2}\n" +
-                                $"v = {v}\n" +
-                                $"r = {r}",
-                                "Проверка подписи",
-                                MessageBoxButton.OK,
-                                isValid ? MessageBoxImage.Information : MessageBoxImage.Warning);
-
-                            StatusTextBlock.Text = "Проверка завершена";
-                        }
-                        else
-                        {
-                            throw new Exception("Некорректный формат файла подписи");
-                        }
+                        signatureParams[parts[0].Trim()] = int.Parse(parts[1].Trim());
                     }
                 }
+
+                // Извлекаем параметры подписи
+                int r = signatureParams["r"];
+                int s = signatureParams["s"];
+                int p = signatureParams["p"];
+                int q = signatureParams["q"];
+                int g = signatureParams["g"];
+                int y = signatureParams["y"];
+
+                AddToLog($"Извлечены параметры подписи: r={r}, s={s}, p={p}, q={q}, g={g}, y={y}");
+
+                // Отображаем содержимое файла и параметры подписи в интерфейсе
+                FileContentTextBox.Text = originalContent;
+                SelectedFileLabel.Content = filePath;
+                RValueTextBox.Text = r.ToString();
+                SValueTextBox.Text = s.ToString();
+                PTextBox.Text = p.ToString();
+                QTextBox.Text = q.ToString();
+                GValueTextBox.Text = g.ToString();
+                YValueTextBox.Text = y.ToString();
+
+                // Вычисляем хеш сообщения
+                int hash = CalculateHash(originalBytes, q);
+                HashValueTextBox.Text = hash.ToString();
+                AddToLog($"Вычислен хеш сообщения: {hash}");
+
+                // Проверяем подпись
+                bool isValid = VerifyDSASignature(originalBytes, r, s, p, q, g, y);
+
+                if (isValid)
+                {
+                    VerificationResultTextBox.Text = "ПОДПИСЬ ВЕРНА";
+                    VerificationResultTextBox.Background = new SolidColorBrush(Colors.LightGreen);
+                    AddToLog("Результат проверки: ПОДПИСЬ ВЕРНА");
+                    StatusTextBlock.Text = "Проверка подписи: ПОДПИСЬ ВЕРНА";
+                }
+                else
+                {
+                    VerificationResultTextBox.Text = "ПОДПИСЬ НЕВЕРНА";
+                    VerificationResultTextBox.Background = new SolidColorBrush(Colors.LightPink);
+                    AddToLog("Результат проверки: ПОДПИСЬ НЕВЕРНА");
+                    StatusTextBlock.Text = "Проверка подписи: ПОДПИСЬ НЕВЕРНА";
+                }
+
+                // Обновляем sourceBytes для возможности повторной подписи того же файла
+                sourceBytes = originalBytes;
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Ошибка проверки подписи: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                 AddToLog($"Ошибка: {ex.Message}");
                 StatusTextBlock.Text = "Ошибка проверки подписи";
+
+                VerificationResultTextBox.Text = "ОШИБКА ПРОВЕРКИ";
+                VerificationResultTextBox.Background = new SolidColorBrush(Colors.LightPink);
             }
         }
+
 
         private void SelectFileButton_Click(object sender, RoutedEventArgs e)
         {
@@ -579,44 +595,6 @@ namespace DSASignatureApp
 
         #region Обработчики меню
 
-        private void OpenMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            SelectFileButton_Click(sender, e);
-        }
-
-        private void SaveMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (string.IsNullOrEmpty(RValueTextBox.Text) || string.IsNullOrEmpty(SValueTextBox.Text))
-            {
-                MessageBox.Show("Подпись ещё не сгенерирована", "Информация", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-
-            try
-            {
-                // Создаем подписанное сообщение
-                string signedMessage = FileContentTextBox.Text +
-                    $"\r\n\r\nЦифровая подпись DSA:\r\nr = {RValueTextBox.Text}\r\ns = {SValueTextBox.Text}";
-
-                SaveFileDialog saveFileDialog = new SaveFileDialog
-                {
-                    Filter = "Текстовые файлы (*.txt)|*.txt|Все файлы (*.*)|*.*",
-                    Title = "Сохранить подписанное сообщение"
-                };
-
-                if (saveFileDialog.ShowDialog() == true)
-                {
-                    File.WriteAllText(saveFileDialog.FileName, signedMessage);
-                    AddToLog($"Подписанное сообщение сохранено в: {saveFileDialog.FileName}");
-                    StatusTextBlock.Text = "Подписанное сообщение успешно сохранено";
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка сохранения подписанного сообщения: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-                AddToLog($"Ошибка: {ex.Message}");
-            }
-        }
 
         private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
         {

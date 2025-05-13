@@ -55,9 +55,6 @@
         <!-- Главное меню -->
         <Menu Grid.Row="0" Grid.ColumnSpan="2" FontFamily="Global User Interface" FontSize="14">
             <MenuItem Header="Файл">
-                <MenuItem Header="Открыть" x:Name="OpenMenuItem" InputGestureText="Ctrl+O" Click="OpenMenuItem_Click"/>
-                <MenuItem Header="Сохранить подписанный файл" x:Name="SaveMenuItem" InputGestureText="Ctrl+S" Click="SaveMenuItem_Click"/>
-                <Separator/>
                 <MenuItem Header="Выход" Click="ExitMenuItem_Click"/>
             </MenuItem>
             <MenuItem Header="Помощь">
